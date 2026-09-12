@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
 
 # Secrets - never commit this
 .env
