@@ -20,3 +20,6 @@ src/rag/vector_store
 .vscode/
 .idea/
 Thumbs.db
+
+# Personal learning docs - kept locally only, not part of the shipped project
+docs/
