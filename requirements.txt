@@ -9,3 +9,15 @@ xgboost==2.1.1
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
 pydantic-settings==2.6.1
+# torch is a transitive dependency of sentence-transformers, but we pin an
+# explicit CUDA-enabled build here (this machine has an NVIDIA RTX 3050)
+# for GPU-accelerated embedding generation. Requires --extra-index-url
+# below, since CUDA wheels aren't hosted on regular PyPI. On a machine
+# without an NVIDIA GPU, replace this line with plain `torch==2.6.0` and
+# drop the --extra-index-url line - sentence-transformers falls back to
+# CPU automatically.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+sentence-transformers==3.2.1
+faiss-cpu==1.9.0
+pyarrow==17.0.0
