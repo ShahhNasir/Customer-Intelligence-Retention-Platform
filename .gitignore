@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets - never commit this
+.env
+
+# Generate Data - regenerate via scripts, don't store in git
+data/raw/*.csv
+data/processed/*.parquet
+data/processed/*.csv
+
+# Trained Model artifacts - regenerate via training scripts
+src/ml/model_registry/*.pkl
+src/ml/model_registry/*.json
+src/rag/vector_store
+
+# IDE / OS cluster
+.vscode/
+.idea/
+Thumbs.db
