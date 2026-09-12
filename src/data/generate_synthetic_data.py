@@ -37,7 +37,7 @@ def generate_customers(n: int) -> pd.DataFrame:
         p=[0.35, 0.20, 0.22, 0.23],
     )
 
-    internet_service = rng.choice(["DSL", "Fiber optic", "None"], size=n, p=[0.35, 0.45, 0.20])
+    internet_service = rng.choice(["DSL", "Fiber optic", "No internet service"], size=n, p=[0.35, 0.45, 0.20])
     tech_support = rng.choice(["Yes", "No"], size=n, p=[0.4, 0.6])
     online_security = rng.choice(["Yes", "No"], size=n, p=[0.35, 0.65])
     paperless_billing = rng.choice(["Yes", "No"], size=n, p=[0.6, 0.4])
@@ -163,22 +163,49 @@ SENTIMENT_BY_TYPE = {
 
 SERVICES = ["internet", "fiber", "streaming add-on", "tech support plan", "mobile hotspot"]
 
+# interaction_type mix depends on whether the customer churned. This is what
+# links interaction TONE (not just count) to churn - without it, an EDA
+# check comparing sentiment between churned/retained customers comes back
+# flat, because type-selection would never "know" about churn risk.
+TYPE_WEIGHTS_CHURNED = {
+    "complaint": 0.25,
+    "cancellation_request": 0.20,
+    "billing_issue": 0.20,
+    "technical_problem": 0.20,
+    "general_inquiry": 0.10,
+    "positive_feedback": 0.05,
+}
+TYPE_WEIGHTS_RETAINED = {
+    "complaint": 0.10,
+    "cancellation_request": 0.02,
+    "billing_issue": 0.15,
+    "technical_problem": 0.15,
+    "general_inquiry": 0.35,
+    "positive_feedback": 0.23,
+}
+
 
 def generate_interactions(customers: pd.DataFrame) -> pd.DataFrame:
     rows = []
     interaction_id = 1
 
-    for cust_id, tenure, n_tickets in zip(
-        customers["customer_id"], customers["tenure_months"], customers["num_support_tickets"]
+    for cust_id, tenure, n_tickets, churned in zip(
+        customers["customer_id"],
+        customers["tenure_months"],
+        customers["num_support_tickets"],
+        customers["churned"],
     ):
         if n_tickets == 0:
             continue  # most customers: no interaction history at all
 
-        # interaction_type distribution: we pick uniformly across the 6
-        # types per row. High-ticket customers naturally end up with MORE
-        # negative-leaning rows overall simply because they have more rows,
-        # not because we hand-bias the type selection itself.
-        types = rng.choice(list(INTERACTION_TEMPLATES.keys()), size=n_tickets)
+        # Churned customers draw interaction types from a distribution
+        # weighted toward complaint/cancellation/billing; retained customers
+        # skew toward general_inquiry/positive_feedback. This is what makes
+        # the RAG corpus's TONE (not just ticket count) reflect churn risk.
+        type_weights = TYPE_WEIGHTS_CHURNED if churned else TYPE_WEIGHTS_RETAINED
+        types = rng.choice(
+            list(type_weights.keys()), size=n_tickets, p=list(type_weights.values())
+        )
 
         for interaction_type in types:
             sentiment_probs = SENTIMENT_BY_TYPE[interaction_type]
