@@ -77,7 +77,7 @@ def generate_customers(n: int) -> pd.DataFrame:
         - 0.30 * has_tech_support
         - 0.25 * has_online_security
         + rng.normal(0, 1.5, size=n)  # irreducible noise
-        - 0.3  # intercept: tunes baseline churn rate
+        - 0.3  # intercept: tunes baseline churn rate (calibrated to ~28%)
     )
 
     churn_probability = 1 / (1 + np.exp(-score))
@@ -116,6 +116,105 @@ def generate_customers(n: int) -> pd.DataFrame:
     )
 
 
+INTERACTION_TEMPLATES = {
+    "billing_issue": [
+        "I was charged ${amount} but my plan should only cost ${expected}. Can you explain this?",
+        "My bill this month is higher than usual. I don't understand the extra ${amount} charge.",
+        "Please refund the ${amount} duplicate charge from {date}.",
+    ],
+    "technical_problem": [
+        "My {service} has been down since {date}. This is affecting my work.",
+        "I'm getting constant connection drops with my {service} service.",
+        "The {service} outage lasted for hours and no one from support followed up.",
+    ],
+    "complaint": [
+        "I've called {n} times about the same issue and nothing has been resolved.",
+        "Very disappointed with the service quality over the past {months} months.",
+        "This is the third time I've had to explain my issue to a different agent.",
+    ],
+    "cancellation_request": [
+        "I want to cancel my subscription. It's no longer worth the ${amount}/month.",
+        "Please cancel my account. I've found a better deal elsewhere.",
+        "I'm switching providers due to the repeated {service} issues.",
+    ],
+    "positive_feedback": [
+        "Just wanted to say the support agent today was extremely helpful!",
+        "Really happy with the {service} upgrade, works much better now.",
+        "Quick resolution on my last ticket, appreciate the fast response.",
+    ],
+    "general_inquiry": [
+        "What are the differences between the current plan and the premium tier?",
+        "Does my plan include {service}? Just want to confirm before renewing.",
+        "How do I update my payment method on file?",
+    ],
+}
+
+# Which sentiment each interaction_type tends toward - a probability
+# distribution, not a fixed mapping, so there's still realistic variation
+# (e.g. a billing_issue can occasionally resolve into neutral, not just negative).
+SENTIMENT_BY_TYPE = {
+    "billing_issue": {"negative": 0.7, "neutral": 0.25, "positive": 0.05},
+    "technical_problem": {"negative": 0.65, "neutral": 0.3, "positive": 0.05},
+    "complaint": {"negative": 0.85, "neutral": 0.13, "positive": 0.02},
+    "cancellation_request": {"negative": 0.9, "neutral": 0.08, "positive": 0.02},
+    "positive_feedback": {"negative": 0.02, "neutral": 0.08, "positive": 0.9},
+    "general_inquiry": {"negative": 0.1, "neutral": 0.8, "positive": 0.1},
+}
+
+SERVICES = ["internet", "fiber", "streaming add-on", "tech support plan", "mobile hotspot"]
+
+
+def generate_interactions(customers: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    interaction_id = 1
+
+    for cust_id, tenure, n_tickets in zip(
+        customers["customer_id"], customers["tenure_months"], customers["num_support_tickets"]
+    ):
+        if n_tickets == 0:
+            continue  # most customers: no interaction history at all
+
+        # interaction_type distribution: we pick uniformly across the 6
+        # types per row. High-ticket customers naturally end up with MORE
+        # negative-leaning rows overall simply because they have more rows,
+        # not because we hand-bias the type selection itself.
+        types = rng.choice(list(INTERACTION_TEMPLATES.keys()), size=n_tickets)
+
+        for interaction_type in types:
+            sentiment_probs = SENTIMENT_BY_TYPE[interaction_type]
+            sentiment = rng.choice(
+                list(sentiment_probs.keys()), p=list(sentiment_probs.values())
+            )
+
+            template = rng.choice(INTERACTION_TEMPLATES[interaction_type])
+            text = template.format(
+                amount=rng.integers(5, 80),
+                expected=rng.integers(20, 100),
+                date=f"{rng.integers(1, 28)}/{rng.integers(1, 12)}",
+                service=rng.choice(SERVICES),
+                n=rng.integers(2, 6),
+                months=rng.integers(1, 6),
+            )
+
+            days_ago = rng.integers(0, max(tenure * 30, 1))
+            timestamp = datetime.now() - timedelta(days=int(days_ago))
+
+            rows.append(
+                {
+                    "interaction_id": interaction_id,
+                    "customer_id": cust_id,
+                    "timestamp": timestamp,
+                    "channel": rng.choice(["chat", "email", "phone"], p=[0.5, 0.3, 0.2]),
+                    "interaction_type": interaction_type,
+                    "sentiment": sentiment,
+                    "text": text,
+                }
+            )
+            interaction_id += 1
+
+    return pd.DataFrame(rows)
+
+
 if __name__ == "__main__":
     customers = generate_customers(N_CUSTOMERS)
 
@@ -126,3 +225,14 @@ if __name__ == "__main__":
 
     customers.to_csv("data/raw/customers.csv", index=False)
     print("\nSaved to data/raw/customers.csv")
+
+    interactions = generate_interactions(customers)
+    print("\nInteractions shape:", interactions.shape)
+    print(interactions.head())
+    print(
+        "\nSentiment distribution:\n",
+        interactions["sentiment"].value_counts(normalize=True).round(3),
+    )
+
+    interactions.to_csv("data/raw/interactions.csv", index=False)
+    print("\nSaved to data/raw/interactions.csv")
