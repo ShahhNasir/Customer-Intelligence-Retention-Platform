@@ -14,7 +14,16 @@ from src.config import settings
 # checks a connection is still alive before handing it out, avoiding
 # "connection closed" errors after periods of idle time - relevant once
 # the API is a long-running server, not just short scripts like this one.
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+#
+# pool_size/max_overflow raised above SQLAlchemy's defaults (5/10) for
+# load testing under real concurrency: each uvicorn WORKER PROCESS gets
+# its own engine/pool (they don't share one), so with N worker processes
+# the real ceiling is N * (pool_size + max_overflow) connections to
+# Postgres. Sized to stay under the container's max_connections=100 even
+# with several workers running (e.g. 4 workers * 20 = 80).
+engine = create_engine(
+    settings.database_url, pool_pre_ping=True, pool_size=10, max_overflow=10
+)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
