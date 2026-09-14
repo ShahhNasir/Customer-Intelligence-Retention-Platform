@@ -92,6 +92,7 @@ class Recommendation(Base):
     prediction_id: Mapped[int] = mapped_column(ForeignKey("predictions.prediction_id"))
     recommendation_text: Mapped[str] = mapped_column(Text)
     passed_guardrails: Mapped[bool] = mapped_column(Boolean)
+    guardrail_reason: Mapped[str] = mapped_column(Text)
     llm_provider: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

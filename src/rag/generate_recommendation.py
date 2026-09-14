@@ -50,28 +50,44 @@ def _format_context(interactions: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def generate_recommendation(customer_id: int, query: str, top_k: int = 5) -> RecommendationResult:
+def generate_recommendation(
+    customer_id: int, query: str, top_k: int = 5, max_attempts: int = 2
+) -> RecommendationResult:
+    """
+    Retrieves context once, then attempts generation up to max_attempts
+    times if the guardrails reject a result - a fresh LLM call (with
+    temperature > 0) sometimes produces a cleanly grounded recommendation
+    on retry even when the first attempt hallucinated. If every attempt
+    fails, the LAST attempt is still returned (not discarded), but with
+    passed_guardrails=False so callers never mistake it for trustworthy
+    output - the audit trail records what happened either way.
+    """
     context_items = retrieve_customer_context(customer_id, query, top_k=top_k)
     context_text = _format_context(context_items)
-
     client = get_llm_client()
-    recommendation = client.generate(
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=(
-            f"Customer's interaction history:\n{context_text}\n\n"
-            "Write the retention recommendation now."
-        ),
-    )
 
-    guardrail_result = run_all_guardrails(recommendation, context_text)
+    result = None
+    for attempt in range(1, max_attempts + 1):
+        recommendation = client.generate(
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=(
+                f"Customer's interaction history:\n{context_text}\n\n"
+                "Write the retention recommendation now."
+            ),
+        )
+        guardrail_result = run_all_guardrails(recommendation, context_text)
 
-    return RecommendationResult(
-        customer_id=customer_id,
-        recommendation_text=recommendation,
-        passed_guardrails=guardrail_result.passed,
-        guardrail_reason=guardrail_result.reason,
-        context_used=context_items,
-    )
+        result = RecommendationResult(
+            customer_id=customer_id,
+            recommendation_text=recommendation,
+            passed_guardrails=guardrail_result.passed,
+            guardrail_reason=f"(attempt {attempt}/{max_attempts}) {guardrail_result.reason}",
+            context_used=context_items,
+        )
+        if guardrail_result.passed:
+            break
+
+    return result
 
 
 if __name__ == "__main__":

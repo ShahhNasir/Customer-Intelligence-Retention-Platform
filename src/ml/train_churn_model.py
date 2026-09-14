@@ -30,38 +30,9 @@ from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from xgboost import XGBClassifier
 
-TARGET_PRECISION = 0.87
+from src.ml.features import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, NUMERIC_COLUMNS
 
-FEATURE_COLUMNS = [
-    "tenure_months",
-    "contract_type",
-    "monthly_charges",
-    "total_charges",
-    "payment_method",
-    "internet_service",
-    "tech_support",
-    "online_security",
-    "paperless_billing",
-    "num_support_tickets",
-    "avg_satisfaction_score",
-    "clv_segment",
-]
-CATEGORICAL_COLUMNS = [
-    "contract_type",
-    "payment_method",
-    "internet_service",
-    "tech_support",
-    "online_security",
-    "paperless_billing",
-    "clv_segment",
-]
-NUMERIC_COLUMNS = [
-    "tenure_months",
-    "monthly_charges",
-    "total_charges",
-    "num_support_tickets",
-    "avg_satisfaction_score",
-]
+TARGET_PRECISION = 0.87
 
 
 def main():

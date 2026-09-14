@@ -25,3 +25,5 @@ pyarrow==17.0.0
 # releases call httpx with a removed 'proxies' kwarg and crash on import).
 groq==1.7.0
 anthropic==1.5.0
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
