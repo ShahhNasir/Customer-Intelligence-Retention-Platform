@@ -21,3 +21,7 @@ torch==2.6.0+cu124
 sentence-transformers==3.2.1
 faiss-cpu==1.9.0
 pyarrow==17.0.0
+# Pinned to versions compatible with the current httpx (older groq/anthropic
+# releases call httpx with a removed 'proxies' kwarg and crash on import).
+groq==1.7.0
+anthropic==1.5.0
