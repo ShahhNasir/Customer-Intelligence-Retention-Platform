@@ -10,7 +10,6 @@ from sentence_transformers import SentenceTransformer
 import torch
 
 import faiss
-import numpy as np
 import pandas as pd
 
 INDEX_PATH = "src/rag/vector_store/interactions.index"
